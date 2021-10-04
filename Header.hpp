@@ -15,14 +15,17 @@ using std::string;
 using std::vector;
 
 string hashFunction(string text);
+
 class Transaction
 {
 private:
-    string fromAddress; 
-    string toAddress; 
+    string SenderAddress; 
+    string ReceiverAddress;
+    string transactionID;
     double amount;
 public:
-    Transaction(string fromAddress, string toAddress, double amount);
+    Transaction(string SenderAddress, string ReceiverAddress, double amount);
+    inline string getTransactionHash();
     ~Transaction();
 };
 class Block
@@ -33,7 +36,7 @@ private:
     string previous_hash;
     string timestamp;
     string version;
-    string MerkelRootHash;
+    string MerkleRootHash;
     unsigned long long int nonce;
     int difficultyTarget;
     // Block body (Transactions)
@@ -41,11 +44,8 @@ private:
 public:
     Block(int difficultyTarget = 2, string version = "Version 1.0",string previous_hash = "0");
     string CalculateHash();
-    string getMerkelRootHash();
-    void mineBlock()
-    {
-        
-    }
+    string getMerkleRootHash();
+    void mineBlock();
     ~Block(){}
 };
 
@@ -69,12 +69,4 @@ public:
         }
     }
 };
-
-
-
-
-
-
-
-
 #endif
