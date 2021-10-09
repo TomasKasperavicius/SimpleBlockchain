@@ -3,7 +3,7 @@
 
 string hashFunction(string text)
 {
-    unsigned long long h = seed;
+    unsigned long long h = PrimeNumberSeed;
     if (text.length() == 0)
     {
         return "ac5171ee1fcf8ad4a986e4d6ab3c0e3c2eb38b79fb557376ea497bee17f8dd7e"; //random hashas
@@ -24,8 +24,8 @@ string hashFunction(string text)
     std::stringstream ss;
     for (int i = 0; i < text.length(); i++)
     {
-        h = (h * A) ^ (text[i] * B);
-        ss << std::hex << h % C;
+        h = (h * PrimeNumber1) ^ (text[i] * PrimeNumber2);
+        ss << std::hex << h % PrimeNumber3;
     }
     string hash = "";
     string all_chars = ss.str();

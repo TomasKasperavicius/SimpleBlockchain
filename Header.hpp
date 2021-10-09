@@ -1,9 +1,9 @@
 #ifndef HEADER_HPP
 #define HEADER_HPP
-#define A 5870873747 //pirminiai skaiciai
-#define B 6863349307
-#define C 9698977879
-#define seed 4033081603
+#define PrimeNumber1 5870873747 //pirminiai skaiciai
+#define PrimeNumber2 6863349307
+#define PrimeNumber3 9698977879
+#define PrimeNumberSeed 4033081603
 
 #include <chrono>
 #include <iostream>
@@ -12,9 +12,11 @@
 #include <vector>
 #include <memory>
 
+using std::to_string;
 using std::string;
 using std::vector;
 using std::cout;
+using std::endl;
 using std::shared_ptr;
 using std::make_shared;
 string hashFunction(string text);
