@@ -4,7 +4,7 @@
 #define PrimeNumber2 6863349307
 #define PrimeNumber3 9698977879
 #define PrimeNumberSeed 4033081603
-
+#include "User.hpp"
 #include <chrono>
 #include <iostream>
 #include <ctime>
@@ -24,16 +24,34 @@ string hashFunction(string text);
 class Transaction
 {
 private:
-    string SenderAddress; 
-    string ReceiverAddress;
+    RSA::PublicKey SenderAddress; 
+    RSA::PublicKey ReceiverAddress;
+    RSASS<PSS, SHA256>::Verifier verifier;
+    string signature;
     string transactionID;
     double amount;
+    bool BalanceError;
 public:
-    Transaction(string SenderAddress, string ReceiverAddress, double amount);
-    inline string getTransactionHash()
-    {
-        return this->transactionID;
+    Transaction(RSA::PublicKey SenderAddress, RSA::PublicKey ReceiverAddress, double amount,double Balance, string signature = "none");
+    inline bool getBalanceError() const{
+        return this->BalanceError;
     }
+    inline RSA::PublicKey getSenderAddress()
+    {
+        return this->SenderAddress;
+    }
+    inline RSA::PublicKey getReceiverAddress()
+    {
+        return this->ReceiverAddress;
+    }
+    inline double getAmount()
+    {
+        return this->amount;
+    }
+    string getTransactionHash();
+    bool verifyTransaction();
+    void addSignature(string signature);
+    void setAmount(double amount);
     ~Transaction(){}
 };
 class Block
@@ -48,14 +66,24 @@ private:
     unsigned long long int nonce;
     int difficultyTarget;
     // Block body (Transactions)
-    vector<Transaction*> transactions;
+    vector<shared_ptr<Transaction>> transactions;
 
 public:
     Block();
-    Block(const vector<Transaction*>& transactions, int difficultyTarget = 2, string version = "Version 1.0",string previous_hash = "0");
+    Block(const vector<shared_ptr<Transaction>>& transactions, int difficultyTarget = 2, string version = "Version 1.0",string previous_hash = "0");
+    inline string getBlockHash() const{
+        return this->hash;
+    }
+    inline string getPreviousBlockHash() const{
+        return this->previous_hash;
+    }
+    inline const vector<shared_ptr<Transaction>>& getTransactions() const{
+        return this->transactions;
+    }
     string CalculateHash();
     string getMerkleRootHash();
     void mineBlock();
+    bool allTransactionsValid();
     ~Block();
 };
 class Node
@@ -92,7 +120,7 @@ class MerkleTree
 private:
     shared_ptr<Node> root;
 public:
-    MerkleTree(const vector<Transaction*> transactions);
+    MerkleTree(const vector<shared_ptr<Transaction>> transactions);
     void TraverseMerkleTree(shared_ptr<Node> root);
     inline shared_ptr<Node> getRoot(){
         return this->root;
@@ -100,20 +128,23 @@ public:
     ~MerkleTree(){}
     friend Block;
 };
-
-
-
-
-
 class Blockchain
 {
 private:
     vector<Block*> chain;
+    double miningReward = 5000.00;
+    vector<shared_ptr<Transaction>> pendingTransactions;
 public:
     Blockchain();
+    inline vector<shared_ptr<Transaction>>& getpendingTransactions()
+    {
+        return this->pendingTransactions;
+    }
     Block* CreateGenesisBlock();
-    void addBlock(string MinerPublicKey);
-    
+    void addBlock(const vector<User*>& users,RSA::PublicKey MinerPublicKey,string MinerName="Miner");
+    void setMiningReward();
+    void validateTransactions();
+    bool isBlockChainValid();
     ~Blockchain();
 };
 #endif

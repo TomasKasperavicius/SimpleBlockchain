@@ -1,30 +1,39 @@
 #ifndef USER_HPP
 #define USER_HPP
-#include "Header.hpp"
-#include <boost/multiprecision/cpp_int.hpp>
-#include <boost/random.hpp>
+#include "cryptopp/files.h"
+#include "cryptopp/osrng.h"
+#include "cryptopp/cryptlib.h"
+#include "cryptopp/rsa.h"
+#include "cryptopp/filters.h"
+#include "cryptopp/pssr.h"
+#include <random>
 
 
-using namespace boost::multiprecision;
-using namespace boost::random;
-using boost::multiprecision::cpp_int;
+using CryptoPP::FileSink;
+using CryptoPP::FileSource;
+using CryptoPP::RandomNumberGenerator;
+using CryptoPP::AutoSeededRandomPool;
+using CryptoPP::Exception;
+using CryptoPP::StringSink;
+using CryptoPP::StreamTransformation;
+using CryptoPP::StreamTransformationFilter;
+using namespace CryptoPP;
 
-cpp_int gcd(cpp_int a, cpp_int b);
-cpp_int checkPrime(cpp_int a);
-string generateKeys();
 class User
 {
 private:
-    cpp_int publicKey;
-    cpp_int privateKey;
+    std::string Name;
+    CryptoPP::RSA::PrivateKey privateKey;
+    CryptoPP::RSA::PublicKey publicKey;
+    CryptoPP::RSASS<CryptoPP::PSS, CryptoPP::SHA256>::Signer signer;
     double Balance;
 public:
-    User();
-    inline cpp_int getPrivateKey()
+    User(std::string Name = "Null");
+    inline std::string getName()
     {
-        return this->privateKey;
+        return this->Name;
     }
-    inline cpp_int getPublicKey()
+    inline CryptoPP::RSA::PublicKey getPublicKey()
     {
         return this->publicKey;
     }
@@ -33,6 +42,7 @@ public:
         return this->Balance;
     }
     void setBalance(double Balance);
+    std::string Sign(std::string transactionID);
     ~User();
 };
 
