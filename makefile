@@ -1,8 +1,8 @@
 main: User.o Header.o 
-	g++ -o main Header.o User.o main.cpp -I /usr/local/boost_1_77_0/include   
-Header:
+	g++ -o main Header.o User.o main.cpp -l:libcryptopp.a   
+Header: User.o
 	g++ -c Header.cpp
 User:
-	g++ -c User.cpp -I /usr/local/boost_1_77_0/include
+	g++ -c User.cpp
 clean:
 	rm *.o main
