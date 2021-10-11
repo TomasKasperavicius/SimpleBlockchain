@@ -6,6 +6,8 @@
 #include "cryptopp/rsa.h"
 #include "cryptopp/filters.h"
 #include "cryptopp/pssr.h"
+#include "cryptopp/hex.h"
+#include "cryptopp/rw.h"
 #include <random>
 
 
@@ -23,9 +25,9 @@ class User
 {
 private:
     std::string Name;
-    CryptoPP::RSA::PrivateKey privateKey;
-    CryptoPP::RSA::PublicKey publicKey;
-    CryptoPP::RSASS<CryptoPP::PSS, CryptoPP::SHA256>::Signer signer;
+    std::string PrivateKey;
+    std::string PublicKey;
+    RSASS<PSS, SHA256>::Signer signer;
     double Balance;
 public:
     User(std::string Name = "Null");
@@ -33,9 +35,9 @@ public:
     {
         return this->Name;
     }
-    inline CryptoPP::RSA::PublicKey getPublicKey()
+    inline std::string getPublicKey()
     {
-        return this->publicKey;
+        return this->PublicKey;
     }
     inline double getBalance()
     {
@@ -45,7 +47,6 @@ public:
     std::string Sign(std::string transactionID);
     ~User();
 };
-
 
 #endif
 

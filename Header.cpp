@@ -1,5 +1,5 @@
 #include "Header.hpp"
-
+#include <deque>
 
 string hashFunction(string text)
 {
@@ -34,6 +34,43 @@ string hashFunction(string text)
         hash += all_chars[i];
     }
     return hash;
+}
+void balanceCheck(const vector<User*>& users, vector<shared_ptr<Transaction>>& transactions)
+{
+    vector<double> userBalances;
+    for (auto &i:users)
+    {
+        userBalances.push_back(i->getBalance());
+    }
+    for (auto&i:transactions)
+    {
+        for (auto &j:users)
+        {
+            int index = 0;
+            if (j->getPublicKey()==i->getSenderAddress())
+            {  
+                if (userBalances[index]-i->getAmount()<0)
+                {
+                    i->setBalanceError(true);
+                    break;
+                }
+                userBalances[index]-=i->getAmount();
+            }
+            index++;
+        }
+    }
+    int size = transactions.size()-1;
+    int i = 0;
+    while (size!=-1)
+    {
+        if (transactions[size]->getBalanceError())
+        {
+            auto it = std::find(transactions.begin(),transactions.end(),transactions[size]);
+            transactions.erase(it);
+            size = transactions.size()-1;
+        }
+        size--;
+    }
 }
 Node::Node(string TxHash)
 {
@@ -83,40 +120,37 @@ void MerkleTree::TraverseMerkleTree(shared_ptr<Node> root)
 }
 
 // Transaction constructor
-Transaction::Transaction(RSA::PublicKey SenderAddress, RSA::PublicKey ReceiverAddress, double amount, double Balance, string signature)
+Transaction::Transaction(string SenderAddress, string ReceiverAddress, double amount, double Balance, string signature)
 {
     this->SenderAddress = SenderAddress;
     this->ReceiverAddress = ReceiverAddress;
-    this->verifier = (SenderAddress);;
+    RSA::PublicKey publicKey;
+    publicKey.Load(StringSource(SenderAddress, true,new HexDecoder()).Ref());
+    this->verifier = (publicKey);
     this->amount = amount;
     this->signature = signature;
-    string senderPubKey = to_string(this->SenderAddress.GetModulus().ConvertToLong())+to_string(this->SenderAddress.GetPublicExponent().ConvertToLong());
-    string receiverPubKey = to_string(this->ReceiverAddress.GetModulus().ConvertToLong())+to_string(this->ReceiverAddress.GetPublicExponent().ConvertToLong());
-    this->transactionID = hashFunction(senderPubKey+receiverPubKey+std::to_string(this->amount));
+    this->transactionID = hashFunction(SenderAddress+ReceiverAddress+std::to_string(this->amount));
     this->BalanceError = Balance - amount < 0 ? true : false;
 }
 string Transaction::getTransactionHash(){
-    string senderPubKey = to_string(this->SenderAddress.GetModulus().ConvertToLong())+to_string(this->SenderAddress.GetPublicExponent().ConvertToLong());
-    string receiverPubKey = to_string(this->ReceiverAddress.GetModulus().ConvertToLong())+to_string(this->ReceiverAddress.GetPublicExponent().ConvertToLong());
-    this->transactionID = hashFunction(senderPubKey+receiverPubKey+std::to_string(this->amount));
+    this->transactionID = hashFunction(this->SenderAddress+this->ReceiverAddress+std::to_string(this->amount));
     return this->transactionID;
 }
 bool Transaction::verifyTransaction()
 {
-    string recovered;
+    bool result = false;
+    string decodedSignature;
+    StringSource ss(this->signature, true,new HexDecoder(new StringSink(decodedSignature)));
     try
     {
-        StringSource ss2(this->getTransactionHash() + this->signature, true,new SignatureVerificationFilter(this->verifier,new StringSink(recovered),
-                             SignatureVerificationFilter::THROW_EXCEPTION |
-                                 SignatureVerificationFilter::PUT_MESSAGE) 
-        );                                                                 
+    StringSource ss2(decodedSignature + this->getTransactionHash(), true,new SignatureVerificationFilter(this->verifier,new ArraySink((byte*)&result,sizeof(result))));
     }
     catch(const std::exception& e)
     {
-    std::cerr << e.what() << '\n';
-    return false;
+        std::cerr << e.what() << '\n';
+        return result;
     }
-    return true;
+    return result;
 }
 void Transaction::addSignature(string signature)
 {
@@ -126,11 +160,15 @@ void Transaction::setAmount(double amount)
 {
     this->amount=amount;
 }
+void Transaction::setBalanceError(bool BalanceError)
+{
+    this->BalanceError = BalanceError;
+}
 string Block::CalculateHash()
 {
-    return hashFunction(timestamp+version+std::to_string(difficultyTarget)+previous_hash+std::to_string(nonce)+this->getMerkleRootHash());
+    return hashFunction(timestamp+version+std::to_string(difficultyTarget)+previous_hash+std::to_string(nonce)+this->CalculateMerkleRootHash());
 }
-string Block::getMerkleRootHash()
+string Block::CalculateMerkleRootHash()
 {
     MerkleTree* merkleTree = new MerkleTree(this->getTransactions());
     string rootHash = merkleTree->getRoot()->getTxHash();
@@ -158,7 +196,7 @@ Block::Block(const vector<shared_ptr<Transaction>>& transactions ,int difficulty
     this->previous_hash = previous_hash;
     this->nonce = 0;
     this->transactions = transactions;
-    this->MerkleRootHash = this->getMerkleRootHash();
+    this->MerkleRootHash = this->CalculateMerkleRootHash();
     this->hash = CalculateHash();
 }
 bool Block::allTransactionsValid()
@@ -188,6 +226,10 @@ Blockchain::~Blockchain()
         delete i;
     }
 }
+void Blockchain::setpendingTransactions(vector<shared_ptr<Transaction>>& pendingTransactions)
+{
+    this->pendingTransactions = pendingTransactions;
+}
 Block* Blockchain::CreateGenesisBlock(){
     vector<shared_ptr<Transaction>> t;
     User user1;
@@ -197,28 +239,31 @@ Block* Blockchain::CreateGenesisBlock(){
     t.push_back(pointer);
     Block* genesis_block = new Block (t);
     genesis_block->mineBlock();
-    this->validateTransactions();//even though genesis block doesn't have transactions
+    this->validateTransactions();
     this->getpendingTransactions().clear();
     return genesis_block;
 }
-void Blockchain::addBlock(const vector<User*>& users,RSA::PublicKey MinerPublicKey, string MinerName)
+void Blockchain::addBlock(const vector<User*>& users,string MinerPublicKey, string MinerName)
 {
     User user;
-    shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(user.getPublicKey(),MinerPublicKey,this->miningReward,user.getBalance()+this->miningReward));
-    t->addSignature(t->getTransactionHash());
+    user.setBalance(this->miningReward);
+    shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(user.getPublicKey(),MinerPublicKey,this->miningReward,user.getBalance()));
+    t->addSignature(user.Sign(t->getTransactionHash()));
+    //t->setAmount(t->getAmount()*30);
     this->getpendingTransactions().push_back(t);
-    this->validateTransactions();
+    //this->validateTransactions();
     Block* newBlock = new Block(this->pendingTransactions,2,"Version 1.0",this->chain[this->chain.size()-1]->CalculateHash());
     newBlock->mineBlock();
+    //miner.setBalance(miner.getBalance()+this->miningReward*50);
     for (auto&i:newBlock->getTransactions())
     {
         for (auto &j:users)
         {
-            if (j->getPublicKey().GetModulus()==i->getSenderAddress().GetModulus())
-            {
+            if (j->getPublicKey()==i->getSenderAddress())
+            {  
                 j->setBalance(j->getBalance()-i->getAmount());
             }
-            if (j->getPublicKey().GetModulus()==i->getReceiverAddress().GetModulus())
+            if (j->getPublicKey()==i->getReceiverAddress())
             {
                 j->setBalance(j->getBalance()+i->getAmount());
             }
@@ -226,24 +271,22 @@ void Blockchain::addBlock(const vector<User*>& users,RSA::PublicKey MinerPublicK
     }
     this->getpendingTransactions().clear();
     this->chain.push_back(newBlock);
+    this->setMiningReward();
 }
 void Blockchain::setMiningReward(){
     this->miningReward != 0.0 ? this->miningReward/=2.0 : this->miningReward = 0;
 }
 void Blockchain::validateTransactions(){
-    int index = 0;
-    for (auto& i :this->pendingTransactions)
+    vector<shared_ptr<Transaction>> temp =this->pendingTransactions;
+    for (auto& i :temp)
     {
         if(!i->verifyTransaction())
         {
-            this->pendingTransactions.erase(this->pendingTransactions.begin()+index);
-        }
-        if (i->getBalanceError())
-        {
-            this->pendingTransactions.erase(this->pendingTransactions.begin()+index);
-        }
-        index++;
+            auto it = std::find(temp.begin(),temp.end(),i);
+            temp.erase(it);
+        } 
     }
+    this->pendingTransactions = temp;
 }
 bool Blockchain::isBlockChainValid()
 {

@@ -11,6 +11,7 @@
 #include <sstream>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 using std::to_string;
 using std::string;
@@ -19,28 +20,27 @@ using std::cout;
 using std::endl;
 using std::shared_ptr;
 using std::make_shared;
-string hashFunction(string text);
 
 class Transaction
 {
 private:
-    RSA::PublicKey SenderAddress; 
-    RSA::PublicKey ReceiverAddress;
+    string SenderAddress; 
+    string ReceiverAddress;
     RSASS<PSS, SHA256>::Verifier verifier;
     string signature;
     string transactionID;
     double amount;
     bool BalanceError;
 public:
-    Transaction(RSA::PublicKey SenderAddress, RSA::PublicKey ReceiverAddress, double amount,double Balance, string signature = "none");
+    Transaction(string SenderAddress, string ReceiverAddress, double amount,double Balance, string signature = "none");
     inline bool getBalanceError() const{
         return this->BalanceError;
     }
-    inline RSA::PublicKey getSenderAddress()
+    inline string getSenderAddress()
     {
         return this->SenderAddress;
     }
-    inline RSA::PublicKey getReceiverAddress()
+    inline string getReceiverAddress()
     {
         return this->ReceiverAddress;
     }
@@ -52,6 +52,7 @@ public:
     bool verifyTransaction();
     void addSignature(string signature);
     void setAmount(double amount);
+    void setBalanceError(bool BalanceError);
     ~Transaction(){}
 };
 class Block
@@ -71,17 +72,29 @@ private:
 public:
     Block();
     Block(const vector<shared_ptr<Transaction>>& transactions, int difficultyTarget = 2, string version = "Version 1.0",string previous_hash = "0");
-    inline string getBlockHash() const{
+    inline const string getBlockHash() const{
         return this->hash;
     }
-    inline string getPreviousBlockHash() const{
+    inline const string getPreviousBlockHash() const{
         return this->previous_hash;
     }
-    inline const vector<shared_ptr<Transaction>>& getTransactions() const{
+    inline const string getTimestamp()const{
+        return this->timestamp;
+    }
+    inline const string getMerkleRootHash() const{
+        return this->MerkleRootHash;
+    }
+    inline const int getDifficultyTarget()const{
+        return this->difficultyTarget;
+    }
+    inline const unsigned long long int getNonce()const{
+        return this->nonce;
+    }
+    inline vector<shared_ptr<Transaction>>& getTransactions(){
         return this->transactions;
     }
     string CalculateHash();
-    string getMerkleRootHash();
+    string CalculateMerkleRootHash();
     void mineBlock();
     bool allTransactionsValid();
     ~Block();
@@ -140,11 +153,14 @@ public:
     {
         return this->pendingTransactions;
     }
+    void setpendingTransactions(vector<shared_ptr<Transaction>>& pendingTransactions);
     Block* CreateGenesisBlock();
-    void addBlock(const vector<User*>& users,RSA::PublicKey MinerPublicKey,string MinerName="Miner");
+    void addBlock(const vector<User*>& users,string MinerPublicKey,string MinerName="Miner");
     void setMiningReward();
     void validateTransactions();
     bool isBlockChainValid();
     ~Blockchain();
 };
+string hashFunction(string text);
+void balanceCheck(const vector<User*>& users, vector<shared_ptr<Transaction>>& transactions);
 #endif
