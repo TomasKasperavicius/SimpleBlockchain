@@ -23,12 +23,12 @@ int main()
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_int_distribution<int> dist (0, 999);
-    std::uniform_real_distribution<double> dist2 (0, 100000);
+    std::uniform_real_distribution<double> dist2 (1, 100000);
     for (int i = 0; i < 10000; i++)
     {
         int sender = dist(mt);
         int receiver = dist(mt);
-        shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(users[sender]->getPublicKey(),users[receiver]->getPublicKey(),dist2(mt),users[sender]->getBalance()));
+        shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(users[sender]->getPublicKey(),users[receiver]->getPublicKey(),dist2(mt)));
         pointer->addSignature(users[sender]->Sign(pointer->getTransactionHash()));
         transactions.push_back(pointer);
     }
@@ -36,7 +36,6 @@ int main()
     users.push_back(miner);
     cout << miner->getName() << " "<< miner->getBalance() << endl;
     Blockchain* blockchain = new Blockchain;
-    int ts =0;
     do
     {
     std::shuffle(transactions.begin(),transactions.end(),mt);
@@ -52,6 +51,7 @@ int main()
     selectedTransactions.clear();
     } while (transactions.size()!=0);
     cout << miner->getName() << " "<< miner->getBalance() << endl;
+    users.pop_back();
     for (auto &i: users)
     {
         ss << i->getName() << " " <<i->getBalance() << endl;
@@ -60,7 +60,7 @@ int main()
     rz << ss.rdbuf();
     rz.close();
     ss.clear();
-    users.pop_back();
+    
     delete miner;
     delete blockchain;
     for (auto &i: users)

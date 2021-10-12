@@ -38,15 +38,17 @@ string hashFunction(string text)
 void balanceCheck(const vector<User*>& users, vector<shared_ptr<Transaction>>& transactions)
 {
     vector<double> userBalances;
+    int detected = 0;
     for (auto &i:users)
     {
         userBalances.push_back(i->getBalance());
     }
     for (auto&i:transactions)
     {
+        int index = 0;
         for (auto &j:users)
         {
-            int index = 0;
+            
             if (j->getPublicKey()==i->getSenderAddress())
             {  
                 if (userBalances[index]-i->getAmount()<0)
@@ -60,14 +62,15 @@ void balanceCheck(const vector<User*>& users, vector<shared_ptr<Transaction>>& t
         }
     }
     int size = transactions.size()-1;
-    int i = 0;
     while (size!=-1)
     {
         if (transactions[size]->getBalanceError())
         {
             auto it = std::find(transactions.begin(),transactions.end(),transactions[size]);
             transactions.erase(it);
+            
             size = transactions.size()-1;
+            continue;
         }
         size--;
     }
@@ -78,7 +81,7 @@ Node::Node(string TxHash)
     this->right=NULL;
     this->TxHash = TxHash;
 }
-MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>> transactions)
+MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>>& transactions)
 {
     vector<shared_ptr<Node>> allTransactionsNodes;
     
@@ -120,7 +123,7 @@ void MerkleTree::TraverseMerkleTree(shared_ptr<Node> root)
 }
 
 // Transaction constructor
-Transaction::Transaction(string SenderAddress, string ReceiverAddress, double amount, double Balance, string signature)
+Transaction::Transaction(string SenderAddress, string ReceiverAddress, double amount, string signature)
 {
     this->SenderAddress = SenderAddress;
     this->ReceiverAddress = ReceiverAddress;
@@ -130,7 +133,7 @@ Transaction::Transaction(string SenderAddress, string ReceiverAddress, double am
     this->amount = amount;
     this->signature = signature;
     this->transactionID = hashFunction(SenderAddress+ReceiverAddress+std::to_string(this->amount));
-    this->BalanceError = Balance - amount < 0 ? true : false;
+    this->BalanceError = false;
 }
 string Transaction::getTransactionHash(){
     this->transactionID = hashFunction(this->SenderAddress+this->ReceiverAddress+std::to_string(this->amount));
@@ -234,7 +237,7 @@ Block* Blockchain::CreateGenesisBlock(){
     vector<shared_ptr<Transaction>> t;
     User user1;
     User user2("Creator");
-    shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user1.getPublicKey(),user2.getPublicKey(),200.00,user1.getBalance()));
+    shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user1.getPublicKey(),user2.getPublicKey(),200.00));
     pointer->addSignature(pointer->getTransactionHash());
     t.push_back(pointer);
     Block* genesis_block = new Block (t);
@@ -247,7 +250,7 @@ void Blockchain::addBlock(const vector<User*>& users,string MinerPublicKey, stri
 {
     User user;
     user.setBalance(this->miningReward);
-    shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(user.getPublicKey(),MinerPublicKey,this->miningReward,user.getBalance()));
+    shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(user.getPublicKey(),MinerPublicKey,this->miningReward));
     t->addSignature(user.Sign(t->getTransactionHash()));
     //t->setAmount(t->getAmount()*30);
     this->getpendingTransactions().push_back(t);

@@ -32,8 +32,8 @@ private:
     double amount;
     bool BalanceError;
 public:
-    Transaction(string SenderAddress, string ReceiverAddress, double amount,double Balance, string signature = "none");
-    inline bool getBalanceError() const{
+    Transaction(string SenderAddress, string ReceiverAddress, double amount, string signature = "none");
+    inline bool getBalanceError(){
         return this->BalanceError;
     }
     inline string getSenderAddress()
@@ -90,7 +90,7 @@ public:
     inline const unsigned long long int getNonce()const{
         return this->nonce;
     }
-    inline vector<shared_ptr<Transaction>>& getTransactions(){
+    inline const vector<shared_ptr<Transaction>>& getTransactions() const{
         return this->transactions;
     }
     string CalculateHash();
@@ -133,7 +133,7 @@ class MerkleTree
 private:
     shared_ptr<Node> root;
 public:
-    MerkleTree(const vector<shared_ptr<Transaction>> transactions);
+    MerkleTree(const vector<shared_ptr<Transaction>>& transactions);
     void TraverseMerkleTree(shared_ptr<Node> root);
     inline shared_ptr<Node> getRoot(){
         return this->root;
