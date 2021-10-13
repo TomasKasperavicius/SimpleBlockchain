@@ -5,4 +5,4 @@ Header: User.o
 User:
 	g++ -c User.cpp
 clean:
-	rm *.o main
+	rm *.o main *.txt

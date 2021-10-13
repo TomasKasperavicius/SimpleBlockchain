@@ -33,9 +33,11 @@ int main()
     rz << ss.rdbuf();
     rz.close();
     ss.clear();
+    rz.open("BlockTransactions.txt",std::ios::trunc);
+    rz.close();
     User *miner = new User("Miner");
     users.push_back(miner);
-    rz.open("Results.txt", std::ios::trunc);
+    rz.open("Blockchain.txt", std::ios::trunc);
     rz.close();
     Blockchain *blockchain = new Blockchain;
     do

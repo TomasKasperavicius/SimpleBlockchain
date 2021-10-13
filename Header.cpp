@@ -1,5 +1,4 @@
 #include "Header.hpp"
-#include <deque>
 
 string hashFunction(string text)
 {
@@ -242,7 +241,7 @@ Block *Blockchain::CreateGenesisBlock()
     t.push_back(pointer);
     Block *genesis_block = new Block(t);
     genesis_block->mineBlock();
-    std::stringstream ss;
+    std::stringstream ss,ss2;
     ss << "Block 0" << endl;
     ss << "Previous block hash: "<<genesis_block->getPreviousBlockHash()<<endl;
     ss << "Hash: " << genesis_block->getBlockHash() << endl;
@@ -257,15 +256,27 @@ Block *Blockchain::CreateGenesisBlock()
     ss << "Size: " << sizeof(genesis_block) << endl;
     ss << "Nonce: " << genesis_block->getNonce() << endl;
     double sum = 0;
+    int n=0;
+    std::ofstream rz;
+    ss2 << "Block 0 transactions: "<< endl;
     for (auto &i : genesis_block->getTransactions())
     {
         sum += i->getAmount();
+        ss2 << "Transaction " << ++n << endl;
+        ss2 << "TransactionID: " << i->getTransactionID() << endl;
+        ss2 << std::left << std::setw(18) << "Sender address: " << i->getSenderAddress() << endl;
+        ss2 << std::left << std::setw(18) << "Receiver address: " << i->getReceiverAddress() << endl;
+        ss2 << "Amount: " << std::fixed << std::setprecision(8) << i->getAmount() << endl;
+        ss2 << "Signature: " << i->getSignature() << endl;
+        ss2 << "---------------------------------------------------------" << endl;
     }
+    rz.open("BlockTransactions.txt", std::ios::app);
+    rz << ss2.rdbuf();
+    rz.close();
     ss << "Transaction volume: " << std::fixed << std::setprecision(8) << sum << endl;
     ss << "Block reward: " << std::fixed << std::setprecision(8) << this->getMiningReward() << endl;
     ss << "---------------------------------------------------------" << endl;
-    std::ofstream rz;
-    rz.open("Results.txt", std::ios::app);
+    rz.open("Blockchain.txt", std::ios::app);
     rz << ss.rdbuf();
     rz.close();
     validateTransactions(miner, t);
@@ -283,7 +294,8 @@ void Blockchain::addBlock(const vector<User *> &users, User *miner, string Miner
     validateTransactions(users, this->pendingTransactions);
     Block *newBlock = new Block(this->pendingTransactions, 2, "Version 1.0", this->chain[this->chain.size() - 1]->CalculateHash());
     newBlock->mineBlock();
-    std::stringstream ss;
+    std::stringstream ss, ss2;
+    std::ofstream rz;
     ss << "Block " << this->chain.size() << endl;
     ss << "Previous block hash: "<<newBlock->getPreviousBlockHash()<<endl;
     ss << "Hash: " << newBlock->getBlockHash() << endl;
@@ -297,15 +309,26 @@ void Blockchain::addBlock(const vector<User *> &users, User *miner, string Miner
     ss << "Size: " << sizeof(newBlock) << endl;
     ss << "Nonce: " << newBlock->getNonce() << endl;
     double sum = 0;
+    int n = 0;
+    ss2 << "Block " << this->chain.size() << " transactions: "<< endl;
     for (auto &i : newBlock->getTransactions())
     {
         sum += i->getAmount();
+        ss2 << "Transaction " << ++n << endl;
+        ss2 << "TransactionID: " << i->getTransactionID() << endl;
+        ss2 << std::left << std::setw(18) << "Sender address: " << i->getSenderAddress() << endl;
+        ss2 << std::left << std::setw(18) << "Receiver address: " << i->getReceiverAddress() << endl;
+        ss2 << "Amount: " << std::fixed << std::setprecision(8) << i->getAmount() << endl;
+        ss2 << "Signature: " << i->getSignature() << endl;
+        ss2 << "---------------------------------------------------------" << endl;
     }
+    rz.open("BlockTransactions.txt", std::ios::app);
+    rz << ss2.rdbuf();
+    rz.close();
     ss << "Transaction volume: " << std::fixed << std::setprecision(8) << sum << endl;
     ss << "Block reward: " << std::fixed << std::setprecision(8) << this->getMiningReward() << endl;
     ss << "---------------------------------------------------------" << endl;
-    std::ofstream rz;
-    rz.open("Results.txt", std::ios::app);
+    rz.open("Blockchain.txt", std::ios::app);
     rz << ss.rdbuf();
     rz.close();
     for (auto &i : newBlock->getTransactions())
