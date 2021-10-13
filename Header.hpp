@@ -12,48 +12,60 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <fstream>
+#include <iomanip>
 
-using std::to_string;
-using std::string;
-using std::vector;
 using std::cout;
 using std::endl;
-using std::shared_ptr;
 using std::make_shared;
+using std::shared_ptr;
+using std::string;
+using std::to_string;
+using std::vector;
 
 class Transaction
 {
 private:
-    string SenderAddress; 
+    string SenderAddress;
     string ReceiverAddress;
     RSASS<PSS, SHA256>::Verifier verifier;
     string signature;
     string transactionID;
     double amount;
-    bool BalanceError;
+    bool TransactionError;
+
 public:
     Transaction(string SenderAddress, string ReceiverAddress, double amount, string signature = "none");
-    inline bool getBalanceError(){
-        return this->BalanceError;
+    inline bool const getTransactionError() const
+    {
+        return this->TransactionError;
     }
-    inline string getSenderAddress()
+    inline const string getSenderAddress() const
     {
         return this->SenderAddress;
     }
-    inline string getReceiverAddress()
+    inline const string getReceiverAddress() const
     {
         return this->ReceiverAddress;
     }
-    inline double getAmount()
+    inline const string getSignature() const
+    {
+        return this->signature;
+    }
+    inline const double getAmount() const
     {
         return this->amount;
+    }
+    inline const string getTransactionID() const
+    {
+        return this->transactionID;
     }
     string getTransactionHash();
     bool verifyTransaction();
     void addSignature(string signature);
     void setAmount(double amount);
-    void setBalanceError(bool BalanceError);
-    ~Transaction(){}
+    void setTransactionError(bool TransactionError);
+    ~Transaction() {}
 };
 class Block
 {
@@ -71,26 +83,37 @@ private:
 
 public:
     Block();
-    Block(const vector<shared_ptr<Transaction>>& transactions, int difficultyTarget = 2, string version = "Version 1.0",string previous_hash = "0");
-    inline const string getBlockHash() const{
+    Block(const vector<shared_ptr<Transaction>> &transactions, int difficultyTarget = 2, string version = "Version 1.0", string previous_hash = "0");
+    inline const string getBlockHash() const
+    {
         return this->hash;
     }
-    inline const string getPreviousBlockHash() const{
+    inline const string getPreviousBlockHash() const
+    {
         return this->previous_hash;
     }
-    inline const string getTimestamp()const{
+    inline const string getTimestamp() const
+    {
         return this->timestamp;
     }
-    inline const string getMerkleRootHash() const{
+    inline const string getVersion() const
+    {
+        return this->version;
+    }
+    inline const string getMerkleRootHash() const
+    {
         return this->MerkleRootHash;
     }
-    inline const int getDifficultyTarget()const{
+    inline const int getDifficultyTarget() const
+    {
         return this->difficultyTarget;
     }
-    inline const unsigned long long int getNonce()const{
+    inline const unsigned long long int getNonce() const
+    {
         return this->nonce;
     }
-    inline const vector<shared_ptr<Transaction>>& getTransactions() const{
+    inline const vector<shared_ptr<Transaction>> &getTransactions() const
+    {
         return this->transactions;
     }
     string CalculateHash();
@@ -105,62 +128,72 @@ private:
     string TxHash;
     shared_ptr<Node> left;
     shared_ptr<Node> right;
+
 public:
     Node(string TxHash);
-    inline string getTxHash(){
+    inline string getTxHash()
+    {
         return this->TxHash;
     }
-    inline shared_ptr<Node> getLeft(){
+    inline shared_ptr<Node> getLeft()
+    {
         return this->left;
     }
-    inline shared_ptr<Node> getRight(){
+    inline shared_ptr<Node> getRight()
+    {
         return this->right;
     }
     void setLeft(shared_ptr<Node> node)
     {
         this->left = node;
     }
-    void setRight(shared_ptr<Node> node){
+    void setRight(shared_ptr<Node> node)
+    {
         this->right = node;
     }
-    ~Node(){
-        
+    ~Node()
+    {
     }
-    
 };
 class MerkleTree
 {
 private:
     shared_ptr<Node> root;
+
 public:
-    MerkleTree(const vector<shared_ptr<Transaction>>& transactions);
+    MerkleTree(const vector<shared_ptr<Transaction>> &transactions);
     void TraverseMerkleTree(shared_ptr<Node> root);
-    inline shared_ptr<Node> getRoot(){
+    inline shared_ptr<Node> getRoot()
+    {
         return this->root;
     }
-    ~MerkleTree(){}
+    ~MerkleTree() {}
     friend Block;
 };
 class Blockchain
 {
 private:
-    vector<Block*> chain;
+    vector<Block *> chain;
     double miningReward = 5000.00;
     vector<shared_ptr<Transaction>> pendingTransactions;
+
 public:
     Blockchain();
-    inline vector<shared_ptr<Transaction>>& getpendingTransactions()
+    inline vector<shared_ptr<Transaction>> &getpendingTransactions()
     {
         return this->pendingTransactions;
     }
-    void setpendingTransactions(vector<shared_ptr<Transaction>>& pendingTransactions);
-    Block* CreateGenesisBlock();
-    void addBlock(const vector<User*>& users,string MinerPublicKey,string MinerName="Miner");
+    inline const double getMiningReward() const
+    {
+        return this->miningReward;
+    }
+    void setpendingTransactions(vector<shared_ptr<Transaction>> &pendingTransactions);
+    Block *CreateGenesisBlock();
+    void addBlock(const vector<User *> &users, User *miner, string MinerName = "Miner");
     void setMiningReward();
-    void validateTransactions();
     bool isBlockChainValid();
     ~Blockchain();
 };
 string hashFunction(string text);
-void balanceCheck(const vector<User*>& users, vector<shared_ptr<Transaction>>& transactions);
+void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transaction>> &transactions);
 #endif
