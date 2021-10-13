@@ -36,6 +36,10 @@ string hashFunction(string text)
 }
 void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transaction>> &transactions)
 {
+    if (transactions.size()==0)
+    {
+        return;
+    }
     vector<double> userBalances;
     int detected = 0;
     for (auto &i : users)
@@ -83,7 +87,6 @@ Node::Node(string TxHash)
 MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>> &transactions)
 {
     vector<shared_ptr<Node>> allTransactionsNodes;
-
     for (auto &i : transactions)
     {
         shared_ptr<Node> pointer = make_shared<Node>(Node(i->getTransactionHash()));
@@ -211,6 +214,27 @@ bool Block::allTransactionsValid()
     }
     return true;
 }
+std::ostream &operator<<(std::ostream &output, const Block* block)
+{
+    output << "Previous block hash: "<<block->getPreviousBlockHash()<<endl;
+    output << "Hash: " << block->getBlockHash() << endl;
+    output << "Timestamp: " << block->getTimestamp();
+    output << "Number of transactions: " << block->getTransactions().size() << endl;
+    output << "Difficulty: " << block->getDifficultyTarget() << endl;
+    output << "Merkle root hash: " << block->getMerkleRootHash() << endl;
+    output << "Version: " << block->getVersion() << endl;
+    output << "Nonce: " << block->getNonce() << endl;
+    double sum = 0;
+    int n = 0;
+    for (auto &i : block->getTransactions())
+    {
+        sum += i->getAmount();
+        
+    }
+    output << "Transaction volume: " << std::fixed << std::setprecision(8) << sum << endl;
+    output << "---------------------------------------------------------" << endl;
+    return output;
+}
 Block::~Block()
 {
 }
@@ -256,7 +280,6 @@ Block *Blockchain::CreateGenesisBlock()
     ss << "Difficulty: " << genesis_block->getDifficultyTarget() << endl;
     ss << "Merkle root hash: " << genesis_block->getMerkleRootHash() << endl;
     ss << "Version: " << genesis_block->getVersion() << endl;
-    ss << "Size: " << sizeof(genesis_block) << endl;
     ss << "Nonce: " << genesis_block->getNonce() << endl;
     double sum = 0;
     int n=0;
@@ -308,7 +331,6 @@ void Blockchain::addBlock(const vector<User *> &users, User *miner, string Miner
     ss << "Difficulty: " << newBlock->getDifficultyTarget() << endl;
     ss << "Merkle root hash: " << newBlock->getMerkleRootHash() << endl;
     ss << "Version: " << newBlock->getVersion() << endl;
-    ss << "Size: " << sizeof(newBlock) << endl;
     ss << "Nonce: " << newBlock->getNonce() << endl;
     double sum = 0;
     int n = 0;
@@ -390,4 +412,20 @@ bool Blockchain::isBlockChainValid()
         previousHash = i->CalculateHash();
     }
     return true;
+}
+Block* Blockchain::getBlock(int n)
+{
+    try
+    {
+        if (n > this->chain.size() - 1|| n < 0)
+        {
+            throw "Block doesn't exist";
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << '\n';
+        exit(1);
+    }
+    return this->chain[n];
 }

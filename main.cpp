@@ -1,6 +1,6 @@
 #include "Header.hpp"
 
-int main()
+int main(int argc, char const *argv[])
 {
     vector<User *> users;
     for (int i = 0; i < 1000; i++)
@@ -53,8 +53,15 @@ int main()
         transactions.erase(transactions.begin(), transactions.begin() + 100);
         selectedTransactions.clear();
     } while (transactions.size() != 0);
-    users.pop_back();
-    delete miner;
+    if (argc != 1)
+    {
+        cout << "Block " << argv[1]<<endl;
+        std::stringstream ss;
+        ss << argv[1];
+        int index;
+        ss >> index;
+        cout << blockchain->getBlock(index);
+    }
     delete blockchain;
     for (auto &i : users)
     {

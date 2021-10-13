@@ -120,6 +120,7 @@ public:
     string CalculateMerkleRootHash();
     void mineBlock();
     bool allTransactionsValid();
+    friend std::ostream &operator<<(std::ostream &output, const Block* block);
     ~Block();
 };
 class Node
@@ -192,6 +193,7 @@ public:
     void addBlock(const vector<User *> &users, User *miner, string MinerName = "Miner");
     void setMiningReward();
     bool isBlockChainValid();
+    Block* getBlock(int n);
     ~Blockchain();
 };
 string hashFunction(string text);

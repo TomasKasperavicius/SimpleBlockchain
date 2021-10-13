@@ -1,5 +1,5 @@
 main: User.o Header.o 
-	g++ -o main Header.o User.o main.cpp -l:libcryptopp.a   
+	g++ -o main Header.o User.o main.cpp -lcryptopp 
 Header: User.o
 	g++ -c Header.cpp
 User:
