@@ -234,13 +234,16 @@ Block *Blockchain::CreateGenesisBlock()
 {
     vector<shared_ptr<Transaction>> t;
     User user1;
+    user1.setBalance(user1.getBalance()+200.0);
     vector<User *> miner;
     miner.push_back(new User("Miner"));
     shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user1.getPublicKey(), miner[0]->getPublicKey(), 200.00));
     pointer->addSignature(pointer->getTransactionHash());
     t.push_back(pointer);
+    validateTransactions(miner, t);
     Block *genesis_block = new Block(t);
     genesis_block->mineBlock();
+    miner[0]->setBalance(miner[0]->getBalance()+t[0]->getAmount());
     std::stringstream ss,ss2;
     ss << "Block 0" << endl;
     ss << "Previous block hash: "<<genesis_block->getPreviousBlockHash()<<endl;
@@ -279,7 +282,6 @@ Block *Blockchain::CreateGenesisBlock()
     rz.open("Blockchain.txt", std::ios::app);
     rz << ss.rdbuf();
     rz.close();
-    validateTransactions(miner, t);
     this->getpendingTransactions().clear();
     delete miner[0];
     return genesis_block;
