@@ -1,8 +1,8 @@
 main: User.o Header.o 
-	g++ -o main Header.o User.o main.cpp -lcryptopp 
-Header: User.o
-	g++ -c Header.cpp
-User:
+	g++ Header.o User.o main.cpp -o main -fopenmp -lcryptopp 
+Header.o:
+	g++ -c Header.cpp -fopenmp
+User.o:
 	g++ -c User.cpp
 clean:
 	rm *.o main *.txt

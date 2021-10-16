@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <omp.h>
 
 using std::cout;
 using std::endl;
@@ -33,6 +34,7 @@ private:
     string transactionID;
     double amount;
     bool TransactionError;
+    bool Executed;
 
 public:
     Transaction(string SenderAddress, string ReceiverAddress, double amount, string signature = "none");
@@ -60,11 +62,15 @@ public:
     {
         return this->transactionID;
     }
+    inline const bool getExecuted() const{
+        return this->Executed;
+    }
     string getTransactionHash();
     bool verifyTransaction();
     void addSignature(string signature);
     void setAmount(double amount);
     void setTransactionError(bool TransactionError);
+    void setExecuted(bool Executed);
     ~Transaction() {}
 };
 class Block
@@ -118,7 +124,7 @@ public:
     }
     string CalculateHash();
     string CalculateMerkleRootHash();
-    void mineBlock();
+    void mineBlock(unsigned long long int max_hash_attempts);
     bool allTransactionsValid();
     friend std::ostream &operator<<(std::ostream &output, const Block* block);
     ~Block();
@@ -180,6 +186,9 @@ private:
 
 public:
     Blockchain();
+    // bool CheckTransactions(vector<shared_ptr<Transaction>>& a){
+    //     return std::find(a.begin(), a.end(), element) != a.end(); 
+    // }
     inline vector<shared_ptr<Transaction>> &getpendingTransactions()
     {
         return this->pendingTransactions;
@@ -190,10 +199,11 @@ public:
     }
     void setpendingTransactions(vector<shared_ptr<Transaction>> &pendingTransactions);
     Block *CreateGenesisBlock();
-    void addBlock(const vector<User *> &users, User *miner, string MinerName = "Miner");
+    void addBlock(vector<User *> &users,const vector<User *>& miners, string MinerName = "Miner");
     void setMiningReward();
     bool isBlockChainValid();
     Block* getBlock(int n);
+    void deleteExecutedTransactions(vector<vector<shared_ptr<Transaction>>>& selectedTransactions,vector<shared_ptr<Transaction>>& addedToBlockTransactions);
     ~Blockchain();
 };
 string hashFunction(string text);

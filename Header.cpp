@@ -41,7 +41,6 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
         return;
     }
     vector<double> userBalances;
-    int detected = 0;
     for (auto &i : users)
     {
         userBalances.push_back(i->getBalance());
@@ -51,7 +50,6 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
         int index = 0;
         for (auto &j : users)
         {
-
             if (j->getPublicKey() == i->getSenderAddress())
             {
                 if (userBalances[index] - i->getAmount() < 0 || !i->verifyTransaction())
@@ -63,6 +61,7 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
             }
             index++;
         }
+        i->setExecuted(true);
     }
     int size = transactions.size() - 1;
     while (size != -1)
@@ -71,7 +70,6 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
         {
             auto it = std::find(transactions.begin(), transactions.end(), transactions[size]);
             transactions.erase(it);
-
             size = transactions.size() - 1;
             continue;
         }
@@ -84,8 +82,14 @@ Node::Node(string TxHash)
     this->right = NULL;
     this->TxHash = TxHash;
 }
-MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>> &transactions)
+MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>>& transactions)
 {
+    if (transactions.size()==0)
+    {
+        shared_ptr<Node> pointer = make_shared<Node>(Node("null"));
+        this->root = pointer;
+        return;
+    }
     vector<shared_ptr<Node>> allTransactionsNodes;
     for (auto &i : transactions)
     {
@@ -135,6 +139,7 @@ Transaction::Transaction(string SenderAddress, string ReceiverAddress, double am
     this->signature = signature;
     this->transactionID = hashFunction(SenderAddress + ReceiverAddress + std::to_string(this->amount));
     this->TransactionError = false;
+    this->Executed = false;
 }
 string Transaction::getTransactionHash()
 {
@@ -169,9 +174,13 @@ void Transaction::setTransactionError(bool TransactionError)
 {
     this->TransactionError = TransactionError;
 }
+void Transaction::setExecuted(bool Executed)
+{
+    this->Executed = Executed;
+}
 string Block::CalculateHash()
 {
-    return hashFunction(timestamp + version + std::to_string(difficultyTarget) + previous_hash + std::to_string(nonce) + this->CalculateMerkleRootHash());
+    return hashFunction(this->getTimestamp() + this->getVersion() + std::to_string(this->getDifficultyTarget()) + this->getPreviousBlockHash() + std::to_string(this->getNonce()) + this->getMerkleRootHash());
 }
 string Block::CalculateMerkleRootHash()
 {
@@ -181,13 +190,19 @@ string Block::CalculateMerkleRootHash()
     return rootHash;
 }
 
-void Block::mineBlock()
+void Block::mineBlock(unsigned long long int max_hash_attempts)
 {
     string difficulty = string(this->difficultyTarget, '0');
+    unsigned long long int start = 0;
     while (this->hash.substr(0, this->difficultyTarget) != difficulty)
     {
         this->nonce++;
         this->hash = this->CalculateHash();
+        start++;
+        if (start==max_hash_attempts)
+        {
+            break;
+        }
     }
 }
 // Block constructor
@@ -201,7 +216,7 @@ Block::Block(const vector<shared_ptr<Transaction>> &transactions, int difficulty
     this->nonce = 0;
     this->transactions = transactions;
     this->MerkleRootHash = this->CalculateMerkleRootHash();
-    this->hash = CalculateHash();
+    this->hash =  this->CalculateHash();
 }
 bool Block::allTransactionsValid()
 {
@@ -256,36 +271,89 @@ void Blockchain::setpendingTransactions(vector<shared_ptr<Transaction>> &pending
 }
 Block *Blockchain::CreateGenesisBlock()
 {
-    vector<shared_ptr<Transaction>> t;
-    User user1;
-    user1.setBalance(user1.getBalance()+200.0);
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    vector<vector<shared_ptr<Transaction>>> t;
+    User* user =  new User();
+    user->setBalance(this->miningReward*5);
     vector<User *> miner;
-    miner.push_back(new User("Miner"));
-    shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user1.getPublicKey(), miner[0]->getPublicKey(), 200.00));
-    pointer->addSignature(pointer->getTransactionHash());
-    t.push_back(pointer);
-    validateTransactions(miner, t);
-    Block *genesis_block = new Block(t);
-    genesis_block->mineBlock();
-    miner[0]->setBalance(miner[0]->getBalance()+t[0]->getAmount());
+    for (int i = 0; i < 5; i++)
+    {
+        miner.push_back(new User("Miner"+to_string(i+1)));
+    }
+    for (int i = 0; i < 5; i++)
+    {
+        shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user->getPublicKey(), miner[i]->getPublicKey(), this->miningReward));
+        pointer->addSignature(user->Sign(pointer->getTransactionHash()));
+        vector<shared_ptr<Transaction>> temp{pointer};
+        t.push_back(temp);
+    }
+    miner.push_back(user);
+    vector<Block*> candidates;
+    candidates.reserve(5);
+    for (int i = 0; i < 5; i++)
+    {
+        validateTransactions(miner, t[i]);
+        Block *genesis_block = new Block(t[i]);
+        candidates.push_back(genesis_block);
+    }
+    int k;
+    vector<Block*> candidates_after;
+    candidates_after.reserve(5);
+    omp_set_num_threads(5);
+    unsigned long long int max_hash_attempts = 100000;
+    while (candidates_after.size()==0)
+    {
+    #pragma omp parallel for private(k) schedule(static,1)
+    for (k = 0; k < 5; k++)
+    {
+        candidates[k]->mineBlock(max_hash_attempts);
+        if (candidates[k]->getBlockHash().substr(0, candidates[k]->getDifficultyTarget())==string(candidates[k]->getDifficultyTarget(), '0'))
+        {
+            #pragma omp critical
+            {
+                candidates_after.push_back(candidates[k]);
+            }
+            
+        }
+    }
+    max_hash_attempts+=100000;
+    }
+    int index = 0;
+    for (int i = 1; i < 5; i++)
+    {
+        if (candidates[i]==candidates_after[0])
+        {
+            index = i;
+        }
+    }
+    candidates.clear();
+    for (int i = 0; i < 5; i++)
+    {
+        if (candidates_after[i]!=candidates_after[0])
+        {
+            delete candidates_after[i];
+        }
+    }
+    miner[index]->setBalance(miner[index]->getBalance()+t[index][0]->getAmount());
     std::stringstream ss,ss2;
     ss << "Block 0" << endl;
-    ss << "Previous block hash: "<<genesis_block->getPreviousBlockHash()<<endl;
-    ss << "Hash: " << genesis_block->getBlockHash() << endl;
-    ss << "Timestamp: " << genesis_block->getTimestamp();
+    ss << "Previous block hash: "<<candidates_after[0]->getPreviousBlockHash()<<endl;
+    ss << "Hash: " << candidates_after[0]->getBlockHash() << endl;
+    ss << "Timestamp: " << candidates_after[0]->getTimestamp();
     ss << "Height: "
        << "0" << endl;
-    ss << "Miner: " << miner[0]->getName() << endl;
-    ss << "Number of transactions: " << genesis_block->getTransactions().size() << endl;
-    ss << "Difficulty: " << genesis_block->getDifficultyTarget() << endl;
-    ss << "Merkle root hash: " << genesis_block->getMerkleRootHash() << endl;
-    ss << "Version: " << genesis_block->getVersion() << endl;
-    ss << "Nonce: " << genesis_block->getNonce() << endl;
+    ss << "Miner: " << miner[index]->getName() << endl;
+    ss << "Number of transactions: " << candidates_after[0]->getTransactions().size() << endl;
+    ss << "Difficulty: " << candidates_after[0]->getDifficultyTarget() << endl;
+    ss << "Merkle root hash: " << candidates_after[0]->getMerkleRootHash() << endl;
+    ss << "Version: " << candidates_after[0]->getVersion() << endl;
+    ss << "Nonce: " << candidates_after[0]->getNonce() << endl;
     double sum = 0;
     int n=0;
     std::ofstream rz;
     ss2 << "Block 0 transactions: "<< endl;
-    for (auto &i : genesis_block->getTransactions())
+    for (auto &i : candidates_after[0]->getTransactions())
     {
         sum += i->getAmount();
         ss2 << "Transaction " << ++n << endl;
@@ -306,36 +374,86 @@ Block *Blockchain::CreateGenesisBlock()
     rz << ss.rdbuf();
     rz.close();
     this->getpendingTransactions().clear();
-    delete miner[0];
-    return genesis_block;
+    for (auto &i:miner)
+    {
+        delete i;
+    }
+    return candidates_after[0];
 }
-void Blockchain::addBlock(const vector<User *> &users, User *miner, string MinerName)
+void Blockchain::addBlock(vector<User *> &users,const vector<User *>& miners, string MinerName)
 {
-    User user;
-    user.setBalance(this->miningReward);
-    shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(user.getPublicKey(), miner->getPublicKey(), this->miningReward));
-    t->addSignature(user.Sign(t->getTransactionHash()));
-    this->getpendingTransactions().push_back(t);
-    validateTransactions(users, this->pendingTransactions);
-    Block *newBlock = new Block(this->pendingTransactions, 2, "Version 1.0", this->chain[this->chain.size() - 1]->CalculateHash());
-    newBlock->mineBlock();
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    users[users.size()-1]->setBalance(this->miningReward*5);
+    vector<Block*> candidates;
+    candidates.reserve(5);
+    vector<vector<shared_ptr<Transaction>>> candidates_transactions;
+    candidates_transactions.reserve(5);
+    std::vector<std::shared_ptr<Transaction>> allTransactions = this->getpendingTransactions();
+    for (int i = 0; i < 5; i++)
+    {
+        std::shuffle(allTransactions.begin(), allTransactions.end(), mt);
+        vector<shared_ptr<Transaction>> selectedTransactions;
+        for (int j = 0; j < 100; j++)
+        {
+            selectedTransactions.push_back(allTransactions[j]);
+        }
+        shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(users[users.size()-1]->getPublicKey(), miners[i]->getPublicKey(), this->miningReward));
+        t->addSignature(users[users.size()-1]->Sign(t->getTransactionHash()));
+        selectedTransactions.push_back(t);
+        candidates_transactions.push_back(selectedTransactions);
+        validateTransactions(users, selectedTransactions);
+        Block *newBlock = new Block(selectedTransactions, 2, "Version 1.0", this->chain[this->chain.size() - 1]->CalculateHash());
+        candidates.push_back(newBlock);
+        selectedTransactions.clear();
+    }
+    vector<Block*> candidates_after;
+    candidates_after.reserve(5);
+    int k;
+    omp_set_num_threads(5);
+    unsigned long long int max_hash_attempts = 100000;
+    while (candidates_after.size()==0)
+    {
+    #pragma omp parallel for private(k, max_hash_attempts) schedule(static,1)
+    for (k = 0; k < 5; k++)
+    {
+        candidates[k]->mineBlock(max_hash_attempts);
+        if (candidates[k]->getBlockHash().substr(0, candidates[k]->getDifficultyTarget())==string(candidates[k]->getDifficultyTarget(), '0'))
+        {
+            #pragma omp critical
+            {
+                candidates_after.push_back(candidates[k]);
+            }  
+        }
+    }
+    max_hash_attempts+=100000;
+    }
+    int index = 0;
+    for (int i = 1; i < 5; i++)
+    {
+        if (candidates[i]==candidates_after[0])
+        {
+            index = i;
+        }
+    }
+    candidates.clear();
     std::stringstream ss, ss2;
     std::ofstream rz;
     ss << "Block " << this->chain.size() << endl;
-    ss << "Previous block hash: "<<newBlock->getPreviousBlockHash()<<endl;
-    ss << "Hash: " << newBlock->getBlockHash() << endl;
-    ss << "Timestamp: " << newBlock->getTimestamp();
+    ss << "Previous block hash: "<<candidates_after[0]->getPreviousBlockHash()<<endl;
+    ss << "Hash: " << candidates_after[0]->getBlockHash() << endl;
+    ss << "Timestamp: " << candidates_after[0]->getTimestamp();
     ss << "Height: " << this->chain.size() << endl;
-    ss << "Miner: " << miner->getName() << endl;
-    ss << "Number of transactions: " << newBlock->getTransactions().size() << endl;
-    ss << "Difficulty: " << newBlock->getDifficultyTarget() << endl;
-    ss << "Merkle root hash: " << newBlock->getMerkleRootHash() << endl;
-    ss << "Version: " << newBlock->getVersion() << endl;
-    ss << "Nonce: " << newBlock->getNonce() << endl;
+    ss << "Miner: " << miners[index]->getName() << endl;
+    ss << "Number of transactions: " << candidates_after[0]->getTransactions().size() << endl;
+    ss << "Difficulty: " << candidates_after[0]->getDifficultyTarget() << endl;
+    ss << "Merkle root hash: " << candidates_after[0]->getMerkleRootHash() << endl;
+    ss << "Version: " << candidates_after[0]->getVersion() << endl;
+    ss << "Nonce: " << candidates_after[0]->getNonce() << endl;
     double sum = 0;
     int n = 0;
     ss2 << "Block " << this->chain.size() << " transactions: "<< endl;
-    for (auto &i : newBlock->getTransactions())
+    for (auto &i : candidates_after[0]->getTransactions())
     {
         sum += i->getAmount();
         ss2 << "Transaction " << ++n << endl;
@@ -355,23 +473,32 @@ void Blockchain::addBlock(const vector<User *> &users, User *miner, string Miner
     rz.open("Blockchain.txt", std::ios::app);
     rz << ss.rdbuf();
     rz.close();
-    for (auto &i : newBlock->getTransactions())
+    for (auto &i : candidates_after[0]->getTransactions())
     {
         for (auto &j : users)
         {
             if (j->getPublicKey() == i->getSenderAddress())
             {
                 j->setBalance(j->getBalance() - i->getAmount());
+
             }
             if (j->getPublicKey() == i->getReceiverAddress())
             {
                 j->setBalance(j->getBalance() + i->getAmount());
             }
         }
+        i->setExecuted(true);
     }
-    this->getpendingTransactions().clear();
-    this->chain.push_back(newBlock);
+    this->chain.push_back(candidates_after[0]);
+    this->deleteExecutedTransactions(candidates_transactions,candidates_transactions[index]);
     this->setMiningReward();
+    for (int i = 0; i < 5; i++)
+    {
+        if (candidates_after[i]!=candidates_after[0])
+        {
+            delete candidates_after[i];
+        }
+    }
 }
 void Blockchain::setMiningReward()
 {
@@ -428,4 +555,39 @@ Block* Blockchain::getBlock(int n)
         exit(1);
     }
     return this->chain[n];
+}
+void Blockchain::deleteExecutedTransactions(vector<vector<shared_ptr<Transaction>>>& selectedTransactions,vector<shared_ptr<Transaction>>& addedToBlockTransactions)
+{
+    for (auto &i:selectedTransactions)
+    {
+        i.pop_back();
+    }
+    int idx =0;
+    for (auto &i:selectedTransactions)
+    {
+        if (i!=addedToBlockTransactions)
+        {
+        for (auto &j:i)
+        {
+        j->setExecuted(false);
+        }
+        }
+        idx++;
+    }
+    for (auto &i:addedToBlockTransactions)
+    {
+        i->setExecuted(true);
+    }
+    int size = this->getpendingTransactions().size() - 1;
+    while (size != -1)
+    {
+        if (this->getpendingTransactions()[size]->getExecuted())
+        {
+            auto it = std::find(this->getpendingTransactions().begin(), this->getpendingTransactions().end(), this->getpendingTransactions()[size]);
+            this->getpendingTransactions().erase(it);
+            size = this->getpendingTransactions().size() - 1;
+            continue;
+        }
+        size--;
+    }
 }

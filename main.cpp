@@ -7,6 +7,8 @@ int main(int argc, char const *argv[])
     {
         users.push_back(new User("User" + to_string(i)));
     }
+    User* user =  new User();
+    users.push_back(user);
     vector<shared_ptr<Transaction>> transactions;
     std::random_device rd;
     std::mt19937 mt(rd());
@@ -35,24 +37,20 @@ int main(int argc, char const *argv[])
     ss.clear();
     rz.open("BlockTransactions.txt",std::ios::trunc);
     rz.close();
-    User *miner = new User("Miner");
-    users.push_back(miner);
+    vector<User *> miners;
+    for (int i = 0; i < 5; i++)
+    {
+        miners.push_back(new User("Miner"+to_string(i+1)));
+        users.push_back(miners[i]);
+    }
     rz.open("Blockchain.txt", std::ios::trunc);
     rz.close();
     Blockchain *blockchain = new Blockchain;
-    do
+    blockchain->setpendingTransactions(transactions);
+    for (int i = 0; i < 100; i++)
     {
-        std::shuffle(transactions.begin(), transactions.end(), mt);
-        vector<shared_ptr<Transaction>> selectedTransactions;
-        for (int i = 0; i < 100; i++)
-        {
-            selectedTransactions.push_back(transactions[i]);
-        }
-        blockchain->setpendingTransactions(selectedTransactions);
-        blockchain->addBlock(users, miner);
-        transactions.erase(transactions.begin(), transactions.begin() + 100);
-        selectedTransactions.clear();
-    } while (transactions.size() != 0);
+        blockchain->addBlock(users,miners);
+    }
     if (argc != 1)
     {
         cout << "Block " << argv[1]<<endl;
