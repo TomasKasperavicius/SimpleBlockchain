@@ -171,7 +171,7 @@ void Transaction::setTransactionError(bool TransactionError)
 }
 string Block::CalculateHash()
 {
-    return hashFunction(timestamp + version + std::to_string(difficultyTarget) + previous_hash + std::to_string(nonce) + this->CalculateMerkleRootHash());
+    return hashFunction(this->getTimestamp() + this->getVersion() + std::to_string(this->getDifficultyTarget()) + this->getPreviousBlockHash() + std::to_string(this->getNonce()) + this->getMerkleRootHash());
 }
 string Block::CalculateMerkleRootHash()
 {
