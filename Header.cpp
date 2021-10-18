@@ -93,7 +93,7 @@ MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>>& transactions)
     vector<shared_ptr<Node>> allTransactionsNodes;
     for (auto &i : transactions)
     {
-        shared_ptr<Node> pointer = make_shared<Node>(Node(i->getTransactionHash()));
+        shared_ptr<Node> pointer = make_shared<Node>(Node(i->getTransactionID()));
         allTransactionsNodes.push_back(pointer);
     }
     vector<shared_ptr<Node>> temp;
@@ -137,14 +137,13 @@ Transaction::Transaction(string SenderAddress, string ReceiverAddress, double am
     this->verifier = (publicKey);
     this->amount = amount;
     this->signature = signature;
-    this->transactionID = hashFunction(SenderAddress + ReceiverAddress + std::to_string(this->amount));
+    this->transactionID = hashFunction(SenderAddress + ReceiverAddress + std::to_string(amount));
     this->TransactionError = false;
     this->Executed = false;
 }
-string Transaction::getTransactionHash()
+string Transaction::CalculateTransactionHash()
 {
-    this->transactionID = hashFunction(this->SenderAddress + this->ReceiverAddress + std::to_string(this->amount));
-    return this->transactionID;
+    return hashFunction(this->SenderAddress + this->ReceiverAddress + std::to_string(this->amount));
 }
 bool Transaction::verifyTransaction()
 {
@@ -153,7 +152,7 @@ bool Transaction::verifyTransaction()
     StringSource ss(this->signature, true, new HexDecoder(new StringSink(decodedSignature)));
     try
     {
-        StringSource ss2(decodedSignature + this->getTransactionHash(), true, new SignatureVerificationFilter(this->verifier, new ArraySink((byte *)&result, sizeof(result))));
+        StringSource ss2(decodedSignature + this->CalculateTransactionHash(), true, new SignatureVerificationFilter(this->verifier, new ArraySink((byte *)&result, sizeof(result))));
     }
     catch (const std::exception &e)
     {
@@ -184,8 +183,9 @@ string Block::CalculateHash()
 }
 string Block::CalculateMerkleRootHash()
 {
-    MerkleTree *merkleTree = new MerkleTree(this->getTransactions());
-    string rootHash = merkleTree->getRoot()->getTxHash();
+    string rootHash;
+    MerkleTree * merkleTree = new MerkleTree(this->getTransactions());
+    rootHash = merkleTree->getRoot()->getTxHash();
     delete merkleTree;
     return rootHash;
 }
@@ -284,7 +284,7 @@ Block *Blockchain::CreateGenesisBlock()
     for (int i = 0; i < 5; i++)
     {
         shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(user->getPublicKey(), miner[i]->getPublicKey(), this->miningReward));
-        pointer->addSignature(user->Sign(pointer->getTransactionHash()));
+        pointer->addSignature(user->Sign(pointer->CalculateTransactionHash()));
         vector<shared_ptr<Transaction>> temp{pointer};
         t.push_back(temp);
     }
@@ -399,7 +399,7 @@ void Blockchain::addBlock(vector<User *> &users,const vector<User *>& miners, st
             selectedTransactions.push_back(allTransactions[j]);
         }
         shared_ptr<Transaction> t = make_shared<Transaction>(Transaction(users[users.size()-1]->getPublicKey(), miners[i]->getPublicKey(), this->miningReward));
-        t->addSignature(users[users.size()-1]->Sign(t->getTransactionHash()));
+        t->addSignature(users[users.size()-1]->Sign(t->CalculateTransactionHash()));
         selectedTransactions.push_back(t);
         candidates_transactions.push_back(selectedTransactions);
         validateTransactions(users, selectedTransactions);
@@ -414,11 +414,11 @@ void Blockchain::addBlock(vector<User *> &users,const vector<User *>& miners, st
     unsigned long long int max_hash_attempts = 100000;
     while (candidates_after.size()==0)
     {
-    #pragma omp parallel for private(k, max_hash_attempts) schedule(static,1)
+    #pragma omp parallel for private(k) schedule(static,1)
     for (k = 0; k < 5; k++)
     {
         candidates[k]->mineBlock(max_hash_attempts);
-        if (candidates[k]->getBlockHash().substr(0, candidates[k]->getDifficultyTarget())==string(candidates[k]->getDifficultyTarget(), '0'))
+        if (candidates[k]->getBlockHash().substr(0, candidates[k]->getDifficultyTarget())==string(candidates[k]->getDifficultyTarget(), '0'));
         {
             #pragma omp critical
             {

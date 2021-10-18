@@ -21,7 +21,7 @@ int main(int argc, char const *argv[])
         int sender = dist(mt);
         int receiver = dist(mt);
         shared_ptr<Transaction> pointer = make_shared<Transaction>(Transaction(users[sender]->getPublicKey(), users[receiver]->getPublicKey(), dist2(mt)));
-        pointer->addSignature(users[sender]->Sign(pointer->getTransactionHash()));
+        pointer->addSignature(users[sender]->Sign(pointer->CalculateTransactionHash()));
         transactions.push_back(pointer);
         ss << "Transaction " << i + 1 << endl;
         ss << "TransactionID: " << pointer->getTransactionID() << endl;

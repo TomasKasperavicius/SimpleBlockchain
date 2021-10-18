@@ -65,7 +65,7 @@ public:
     inline const bool getExecuted() const{
         return this->Executed;
     }
-    string getTransactionHash();
+    string CalculateTransactionHash();
     bool verifyTransaction();
     void addSignature(string signature);
     void setAmount(double amount);
@@ -88,7 +88,7 @@ private:
     vector<shared_ptr<Transaction>> transactions;
 
 public:
-    Block();
+    Block() : hash(""),previous_hash(""),timestamp(""),version(""),MerkleRootHash(""),nonce(0),difficultyTarget(2),transactions{NULL}{}
     Block(const vector<shared_ptr<Transaction>> &transactions, int difficultyTarget = 2, string version = "Version 1.0", string previous_hash = "0");
     inline const string getBlockHash() const
     {
@@ -186,9 +186,6 @@ private:
 
 public:
     Blockchain();
-    // bool CheckTransactions(vector<shared_ptr<Transaction>>& a){
-    //     return std::find(a.begin(), a.end(), element) != a.end(); 
-    // }
     inline vector<shared_ptr<Transaction>> &getpendingTransactions()
     {
         return this->pendingTransactions;
