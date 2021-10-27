@@ -52,7 +52,7 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
         {
             if (j->getPublicKey() == i->getSenderAddress())
             {
-                if (userBalances[index] - i->getAmount() < 0 || !i->verifyTransaction())
+                if (userBalances[index] - i->getAmount() < 0 || !i->verifyTransaction()||i->getTransactionID()!=i->CalculateTransactionHash())
                 {
                     i->setTransactionError(true);
                     break;
@@ -562,7 +562,6 @@ void Blockchain::deleteExecutedTransactions(vector<vector<shared_ptr<Transaction
     {
         i.pop_back();
     }
-    int idx =0;
     for (auto &i:selectedTransactions)
     {
         if (i!=addedToBlockTransactions)
@@ -572,7 +571,6 @@ void Blockchain::deleteExecutedTransactions(vector<vector<shared_ptr<Transaction
         j->setExecuted(false);
         }
         }
-        idx++;
     }
     for (auto &i:addedToBlockTransactions)
     {
