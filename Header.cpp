@@ -1,5 +1,48 @@
 #include "Header.hpp"
 
+bc::hash_digest create_merkle(bc::hash_list& merkle)
+{
+ // Stop if hash list is empty or contains one element
+ if (merkle.empty())
+ return bc::null_hash;
+ else if (merkle.size() == 1)
+ return merkle[0];
+ // While there is more than 1 hash in the list, keep looping...
+ while (merkle.size() > 1)
+ {
+ // If number of hashes is odd, duplicate last hash in the list.
+ if (merkle.size() % 2 != 0)
+ merkle.push_back(merkle.back());
+ // List size is now even.
+ assert(merkle.size() % 2 == 0);
+ // New hash list.
+ bc::hash_list new_merkle;
+ // Loop through hashes 2 at a time.
+ for (auto it = merkle.begin(); it != merkle.end(); it += 2)
+ {
+ // Join both current hashes together (concatenate).
+ bc::data_chunk concat_data(bc::hash_size * 2);
+ auto concat = bc::serializer<
+ decltype(concat_data.begin())>(concat_data.begin());
+ concat.write_hash(*it);
+ concat.write_hash(*(it + 1));
+ // Hash both of the hashes.
+ bc::hash_digest new_root = bc::bitcoin_hash(concat_data);
+ // Add this to the new list.
+ new_merkle.push_back(new_root);
+ }
+ // This is the new list.
+ merkle = new_merkle;
+ // DEBUG output -------------------------------------
+//  std::cout << "Current merkle hash list:" << std::endl;
+//  for (const auto& hash: merkle)
+//  std::cout << " " << bc::encode_base16(hash) << std::endl;
+//  std::cout << std::endl;
+ // --------------------------------------------------
+ }
+ // Finally we end up with a single item.
+ return merkle[0];
+}
 string hashFunction(string text)
 {
     unsigned long long h = PrimeNumberSeed;
@@ -76,56 +119,6 @@ void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transac
         size--;
     }
 }
-Node::Node(string TxHash)
-{
-    this->left = NULL;
-    this->right = NULL;
-    this->TxHash = TxHash;
-}
-MerkleTree::MerkleTree(const vector<shared_ptr<Transaction>>& transactions)
-{
-    if (transactions.size()==0)
-    {
-        shared_ptr<Node> pointer = make_shared<Node>(Node("null"));
-        this->root = pointer;
-        return;
-    }
-    vector<shared_ptr<Node>> allTransactionsNodes;
-    for (auto &i : transactions)
-    {
-        shared_ptr<Node> pointer = make_shared<Node>(Node(i->getTransactionID()));
-        allTransactionsNodes.push_back(pointer);
-    }
-    vector<shared_ptr<Node>> temp;
-    while (allTransactionsNodes.size() != 1)
-    {
-
-        if (allTransactionsNodes.size() % 2 != 0)
-        {
-            shared_ptr<Node> pointer = make_shared<Node>(Node(allTransactionsNodes.at(allTransactionsNodes.size() - 1)->getTxHash()));
-            allTransactionsNodes.push_back(pointer);
-        }
-        for (int i = 0, n = 0; i < allTransactionsNodes.size(); i += 2, n++)
-        {
-            shared_ptr<Node> pointer = make_shared<Node>(Node(hashFunction(allTransactionsNodes[i]->getTxHash() + allTransactionsNodes[i + 1]->getTxHash())));
-            temp.push_back(pointer);
-            temp[n]->setLeft(allTransactionsNodes[i]);
-            temp[n]->setRight(allTransactionsNodes[i + 1]);
-        }
-        allTransactionsNodes = temp;
-        temp.clear();
-    }
-    this->root = allTransactionsNodes[0];
-}
-void MerkleTree::TraverseMerkleTree(shared_ptr<Node> root)
-{
-    if (root)
-    {
-        cout << root->getTxHash() << '\n';
-        TraverseMerkleTree(root->getLeft());
-        TraverseMerkleTree(root->getRight());
-    }
-}
 
 // Transaction constructor
 Transaction::Transaction(string SenderAddress, string ReceiverAddress, double amount, string signature)
@@ -181,15 +174,18 @@ string Block::CalculateHash()
 {
     return hashFunction(this->getTimestamp() + this->getVersion() + std::to_string(this->getDifficultyTarget()) + this->getPreviousBlockHash() + std::to_string(this->getNonce()) + this->getMerkleRootHash());
 }
-string Block::CalculateMerkleRootHash()
-{
-    string rootHash;
-    MerkleTree * merkleTree = new MerkleTree(this->getTransactions());
-    rootHash = merkleTree->getRoot()->getTxHash();
-    delete merkleTree;
-    return rootHash;
+string Block::CalculateMerkleRootHash(){
+    bc::hash_list tx_hashes;
+    for (size_t i = 0; i < this->transactions.size(); i++)
+    {
+        char a[65];
+        strcpy(a, this->transactions[i]->getTransactionID().c_str());
+        tx_hashes.push_back(bc::hash_literal(a));
+    }
+    const bc::hash_digest merkle_root = create_merkle(tx_hashes);
+    return bc::encode_base16(merkle_root);
+    // std::cout << "Merkle Root Hash-2: " << bc::encode_hash(merkle_root) << std::endl
 }
-
 void Block::mineBlock(unsigned long long int max_hash_attempts)
 {
     string difficulty = string(this->difficultyTarget, '0');

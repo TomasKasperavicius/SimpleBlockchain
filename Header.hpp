@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iomanip>
 #include <omp.h>
+#include <bitcoin/system.hpp>
 
 using std::cout;
 using std::endl;
@@ -129,54 +130,7 @@ public:
     friend std::ostream &operator<<(std::ostream &output, const Block* block);
     ~Block();
 };
-class Node
-{
-private:
-    string TxHash;
-    shared_ptr<Node> left;
-    shared_ptr<Node> right;
 
-public:
-    Node(string TxHash);
-    inline string getTxHash()
-    {
-        return this->TxHash;
-    }
-    inline shared_ptr<Node> getLeft()
-    {
-        return this->left;
-    }
-    inline shared_ptr<Node> getRight()
-    {
-        return this->right;
-    }
-    void setLeft(shared_ptr<Node> node)
-    {
-        this->left = node;
-    }
-    void setRight(shared_ptr<Node> node)
-    {
-        this->right = node;
-    }
-    ~Node()
-    {
-    }
-};
-class MerkleTree
-{
-private:
-    shared_ptr<Node> root;
-
-public:
-    MerkleTree(const vector<shared_ptr<Transaction>> &transactions);
-    void TraverseMerkleTree(shared_ptr<Node> root);
-    inline shared_ptr<Node> getRoot()
-    {
-        return this->root;
-    }
-    ~MerkleTree() {}
-    friend Block;
-};
 class Blockchain
 {
 private:
@@ -205,4 +159,5 @@ public:
 };
 string hashFunction(string text);
 void validateTransactions(const vector<User *> &users, vector<shared_ptr<Transaction>> &transactions);
+bc::hash_digest create_merkle(bc::hash_list& merkle);
 #endif
